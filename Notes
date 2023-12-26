@@ -1,0 +1,15 @@
+############## -*- general -*- ##############
+
+    +   create a basic server that listen on PORT 8080 and wait for 
+        upcoming connection and accept it
+
+############## -*- !snake -*- ##############
+
+TO_DO => 
+    + check this -> RFC 1459
+
+############## -*- kadigh -*- ##############
+
+############## -*- serfak -*- ##############
+- maitrise des sockets
+- limechat check nickname
