@@ -6,7 +6,7 @@
 /*   By: heddahbi <heddahbi@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/19 01:13:20 by heddahbi          #+#    #+#             */
-/*   Updated: 2023/12/26 04:19:34 by heddahbi         ###   ########.fr       */
+/*   Updated: 2023/12/26 06:58:32 by heddahbi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -62,7 +62,6 @@ void check_inusenick(std::string nickname,int fd , Server &server,Client &client
         send_err(":Nickname is already in use\r\n","433",fd,1);
         return;
     }
-    
 }
 int parse_pwd(Client &client)
 {

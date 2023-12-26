@@ -6,12 +6,34 @@
 /*   By: heddahbi <heddahbi@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/26 04:31:16 by heddahbi          #+#    #+#             */
-/*   Updated: 2023/12/26 04:32:44 by heddahbi         ###   ########.fr       */
+/*   Updated: 2023/12/26 06:57:37 by heddahbi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../Inc/server.hpp"
-
+int  user_parse(int fd ,Client &client,std::string buffer)
+{
+    client.set_username (_return_cmd(buffer));
+    std::string temp = buffer.substr(buffer.find(" ") + 1);
+    std::string r;
+    int i = 0;
+    while (temp != "\r\n" && i < 3)
+    {
+        client.set_user_info_element(i, temp.substr(0, temp.find(" ")));
+        temp = temp.substr(temp.find(" ") + 1);
+        i++;
+    }
+    if (i < 4)
+        r = temp;
+    if (r.find(":") != std::string::npos)
+        client.set_user_info_element(3, r.substr(r.find(":") + 1));
+    else if (!client.get_nickname().empty())  
+    {
+        send_err("Multiple Params\r\n", "461", fd, 0);
+        return EXIT_FAILURE;  
+    }
+    return (EXIT_SUCCESS);
+}
 void receive_message(int fd, Client &client, Server &server)
 {
     char buff[1024] = {0};
@@ -40,28 +62,10 @@ void receive_message(int fd, Client &client, Server &server)
         }
         else if (command == "USER")
         {
-            client.set_username (_return_cmd(buffer));
-            std::string temp = buffer.substr(buffer.find(" ") + 1);
-            std::string r;
-            int i = 0;
-            while (temp != "\r\n" && i < 3)
-            {
-                client.set_user_info_element(i, temp.substr(0, temp.find(" ")));
-                temp = temp.substr(temp.find(" ") + 1);
-                i++;
-            }
-            if (i < 4)
-                r = temp;
-            if (r.find(":") != std::string::npos)
-                client.set_user_info_element(3, r.substr(r.find(":") + 1));
-            else if (!client.get_nickname().empty())  
-            {
-                send_err(":No realname given\r\n", "461", fd, 0);
-                return;
-            }
+            if(user_parse(fd,client,buffer)== EXIT_FAILURE)
+                return ;
             authentify(fd,client,server);
+        }
     }
-    else 
-        std::cout << ": buff " << buff ;
-    }
+    std::cout << " : "<<buff;
 }
