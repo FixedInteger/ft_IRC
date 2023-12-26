@@ -6,7 +6,7 @@
 /*   By: heddahbi <heddahbi@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/19 01:13:20 by heddahbi          #+#    #+#             */
-/*   Updated: 2023/12/26 06:58:32 by heddahbi         ###   ########.fr       */
+/*   Updated: 2023/12/26 23:34:38 by heddahbi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,27 +39,27 @@ int parse_nickname(std::string nickname,int fd)
 {
     if(nickname.find_first_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ[]\\^{}|`") == std::string::npos)
     {
-        send_err(":Invalid nickname\r\n","432",fd,0);
+        
+        send_err(":Invalid nickname\r\n","432 * ",fd,0);
         return 0;
     }
     if(nickname.find_first_of("  \t") != std::string::npos)
     {
-        send_err(":Invalid nickname\r\n","432",fd,0);
+        send_err(":Invalid nickname\r\n","432 * ",fd,0);
         return 0;
     }
     if(nickname.empty() || nickname == "\n")
     {
-        send_err(":No nickname given\r\n","431",fd,0);
+        send_err(":No nickname given\r\n","431 * ",fd,0);
         return 0;
     }
     return 1;
 }
-void check_inusenick(std::string nickname,int fd , Server &server,Client &client)
+void check_inusenick(std::string nickname,int fd , Server &server)
 {
     if (server.used_nicknames.find(nickname) != server.used_nicknames.end()) 
     {
-        server.connected_clients.erase(&client);
-        send_err(":Nickname is already in use\r\n","433",fd,1);
+        send_err(":Nickname is already in use\r\n","433 * ",fd,0);
         return;
     }
 }
@@ -93,7 +93,7 @@ int main(int ac, char** av)
            int fd = (int)evList[i].ident;
           if((int)evList[i].flags & EV_EOF)
            {
-                std::cout << "cl disconnected"<<std::endl;
+                std::cout << "client  disconnected"<<std::endl;
                 close(fd);
            }
            else if(fd == server_socket)

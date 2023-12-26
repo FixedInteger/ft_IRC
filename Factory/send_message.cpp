@@ -6,12 +6,12 @@
 /*   By: heddahbi <heddahbi@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/26 04:31:16 by heddahbi          #+#    #+#             */
-/*   Updated: 2023/12/26 06:57:37 by heddahbi         ###   ########.fr       */
+/*   Updated: 2023/12/27 00:24:23 by heddahbi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../Inc/server.hpp"
-int  user_parse(int fd ,Client &client,std::string buffer)
+int  user_parse(Client &client,std::string buffer)
 {
     client.set_username (_return_cmd(buffer));
     std::string temp = buffer.substr(buffer.find(" ") + 1);
@@ -27,11 +27,8 @@ int  user_parse(int fd ,Client &client,std::string buffer)
         r = temp;
     if (r.find(":") != std::string::npos)
         client.set_user_info_element(3, r.substr(r.find(":") + 1));
-    else if (!client.get_nickname().empty())  
-    {
-        send_err("Multiple Params\r\n", "461", fd, 0);
-        return EXIT_FAILURE;  
-    }
+   else
+        client.set_user_info_element(3, r);
     return (EXIT_SUCCESS);
 }
 void receive_message(int fd, Client &client, Server &server)
@@ -47,7 +44,7 @@ void receive_message(int fd, Client &client, Server &server)
     {
         client.set_password(_return_cmd(buffer));
        if(parse_pwd(client) == 0 && !client.get_is_auth())
-            send_err(":Invalid password\r\n","464",fd,0);
+            send_err(":Invalid password\r\n","464 *",fd,0);
         else if(client.get_is_auth() && parse_pwd(client) == 0 )
             return;
     }
@@ -55,14 +52,14 @@ void receive_message(int fd, Client &client, Server &server)
     {
         if (command == "NICK")
         {
-           if(parse_nickname(new_nickname,fd) == 0 )
-                return;
-            check_inusenick(new_nickname,fd,server,client);
+           if(parse_nickname(new_nickname,fd) == 0)
+                return ;
+            check_inusenick(new_nickname,fd,server);
             client.set_nickname(new_nickname);
         }
         else if (command == "USER")
         {
-            if(user_parse(fd,client,buffer)== EXIT_FAILURE)
+            if(user_parse(client,buffer)== EXIT_FAILURE)
                 return ;
             authentify(fd,client,server);
         }

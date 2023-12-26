@@ -50,7 +50,7 @@ bool check_in(int c);
 void send_err(std::string message, std::string code,int fd, int f);
 void authentify(int fd,Client &client,Server &server);
 int parse_pwd(Client &client);
-void check_inusenick(std::string nickname,int fd , Server &serve,Client &client);
+void check_inusenick(std::string nickname,int fd , Server &server);
 int parse_nickname(std::string nickname,int fd);
 void send_err(std::string message, std::string code,int fd, int f);
 std::string _return_cmd(std::string buffer);
