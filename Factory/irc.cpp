@@ -6,7 +6,7 @@
 /*   By: heddahbi <heddahbi@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/19 01:13:20 by heddahbi          #+#    #+#             */
-/*   Updated: 2023/12/26 23:34:38 by heddahbi         ###   ########.fr       */
+/*   Updated: 2023/12/27 10:11:33 by heddahbi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,7 +22,24 @@ void ft_close_all(int server_socket, int kq)
 
 std::string _return_cmd(std::string buffer)
 {
-    return(buffer.substr(buffer.find(" ") + 1, buffer.find("\r\n") - buffer.find(" ") - 1));
+    std::string cmd;
+    cmd = buffer.substr(buffer.find(" ") + 1, buffer.find("\r\n") - buffer.find(" ") - 1);
+    cmd.erase(std::remove(cmd.begin(), cmd.end(), '\n'), cmd.end());
+    cmd.erase(std::remove(cmd.begin(), cmd.end(), '\r'), cmd.end());
+    return(cmd);
+}
+#include <iostream>  // Include necessary headers
+
+void send_message( std::string message, std::string nickname, int fd, int code)
+{
+    char buff[1024] = {0};
+    std::string irc_message;
+    
+    irc_message = ":localhost" + std::to_string(code).append(" ") + nickname.append(" ") + message.append("\r\n");
+    strcpy(buff, irc_message.c_str());
+    int send_bytes = send(fd, buff, strlen(buff), 0);
+    if (send_bytes < 0)
+        return ;
 }
 
 void send_err(std::string message, std::string code,int fd, int f)
@@ -37,38 +54,32 @@ void send_err(std::string message, std::string code,int fd, int f)
 
 int parse_nickname(std::string nickname,int fd)
 {
-    if(nickname.find_first_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ[]\\^{}|`") == std::string::npos)
+   if(nickname.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]\\`_^{|}-\n\r") != std::string::npos)
     {
-        
-        send_err(":Invalid nickname\r\n","432 * ",fd,0);
+        send_err(":Invalid nickname\r\n","432 ",fd,0);
         return 0;
     }
+   
     if(nickname.find_first_of("  \t") != std::string::npos)
     {
         send_err(":Invalid nickname\r\n","432 * ",fd,0);
         return 0;
     }
-    if(nickname.empty() || nickname == "\n")
-    {
-        send_err(":No nickname given\r\n","431 * ",fd,0);
-        return 0;
-    }
     return 1;
 }
-void check_inusenick(std::string nickname,int fd , Server &server)
+int  check_inusenick(std::string nickname, Server &server)
 {
     if (server.used_nicknames.find(nickname) != server.used_nicknames.end()) 
-    {
-        send_err(":Nickname is already in use\r\n","433 * ",fd,0);
-        return;
-    }
+        return 0;
+    return 1;
 }
-int parse_pwd(Client &client)
+int parse_pwd(Client &client,Server &server)
 {
-    if(client.get_password().find_first_of("  \t") != std::string::npos)
+    if(strcmp(client.get_password().c_str(),server.pwd.c_str()) != 0)
+    {
+        send_err(":Invalid password\r\n","464 * ",client.get_fd(),0);
         return 0;
-    if(client.get_password().empty() || client.get_password() == "\n")
-        return 0;
+    }
     return 1;
 
 }
@@ -93,30 +104,55 @@ int main(int ac, char** av)
            int fd = (int)evList[i].ident;
           if((int)evList[i].flags & EV_EOF)
            {
-                std::cout << "client  disconnected"<<std::endl;
-                close(fd);
-           }
-           else if(fd == server_socket)
-           {
-                int client_socket = set_upnewconnx(server_socket);
-                if(client_socket == -1)
-                    ft_error("accept failed");
-                else if(client_socket > 0)
-                    setclient_queue(client_socket,i,evList,server.kq);
-                server.connected_clients.insert( new Client(client_socket));
-           }
-           else 
-            {
-                for (std::set<Client*>::iterator it = server.connected_clients.begin(); it != server.connected_clients.end(); ++it)
+                for(std::set<Client*>::iterator it = server.connected_clients.begin(); it != server.connected_clients.end(); ++it)
                 {
                     if((*it)->get_fd() == fd)
                     {
-                        receive_message(fd,**it,server);
+                        std::cout << "client " << (*it)->get_nickname() << " disconnected" << std::endl;
+                        server.used_nicknames.erase((*it)->get_nickname());
+                        server.connected_clients.erase(*it);
                         break;
                     }
                 }
-            
-            }
+                std::cout << "client  disconnected"<<std::endl;
+                close(fd);
+           }
+              else if (fd == server_socket)
+              {
+                 int client_socket = set_upnewconnx(server_socket);
+                 if (client_socket == -1)
+                      ft_error("accept failed");
+                 Client *client = new Client(client_socket);
+                 setclient_queue(client_socket,i,evList,server.kq);
+                 server.connected_clients.insert(client);
+                 server.used_nicknames.insert(client->get_nickname());
+              }
+              else if ((int)evList[i].flags & EVFILT_READ) 
+              {
+                    for(std::set<Client*>::iterator it = server.connected_clients.begin(); it != server.connected_clients.end(); ++it)
+                    {
+                        if((*it)->get_fd() == fd)
+                        {
+                            if(receive_message(**it,server,fd) == 0)
+                            {
+                                std::cout << "client " << (*it)->get_nickname() << " disconnected" << std::endl;
+                                server.used_nicknames.erase((*it)->get_nickname());
+                                server.connected_clients.erase(*it);
+                                break;
+                            }
+                            if((*it)->get_o() == 3)
+                                authentify(fd,**it,server);
+                            break;
+                        }
+                        else
+                            continue;
+                    }
+              }
+              else
+                {
+                    std::cout << "Unexpected event" << std::endl;
+                    exit(EXIT_FAILURE);
+                }           
         }
     }
     for (std::set<Client*>::iterator it = server.connected_clients.begin(); it != server.connected_clients.end(); ++it)

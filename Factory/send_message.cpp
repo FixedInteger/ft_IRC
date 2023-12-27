@@ -6,63 +6,83 @@
 /*   By: heddahbi <heddahbi@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/26 04:31:16 by heddahbi          #+#    #+#             */
-/*   Updated: 2023/12/27 00:24:23 by heddahbi         ###   ########.fr       */
+/*   Updated: 2023/12/27 10:20:57 by heddahbi         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "../Inc/server.hpp"
-int  user_parse(Client &client,std::string buffer)
+
+std::string parse(std::string buffer)
 {
-    client.set_username (_return_cmd(buffer));
-    std::string temp = buffer.substr(buffer.find(" ") + 1);
-    std::string r;
-    int i = 0;
-    while (temp != "\r\n" && i < 3)
-    {
-        client.set_user_info_element(i, temp.substr(0, temp.find(" ")));
-        temp = temp.substr(temp.find(" ") + 1);
-        i++;
-    }
-    if (i < 4)
-        r = temp;
-    if (r.find(":") != std::string::npos)
-        client.set_user_info_element(3, r.substr(r.find(":") + 1));
-   else
-        client.set_user_info_element(3, r);
-    return (EXIT_SUCCESS);
+    std::string cmd;
+    cmd = buffer.substr(buffer.find(" ") + 1, buffer.find("\r\n") - buffer.find(" ") - 1);
+    cmd.erase(std::remove(cmd.begin(), cmd.end(), '\n'), cmd.end());
+    cmd.erase(std::remove(cmd.begin(), cmd.end(), '\r'), cmd.end());
+    return(cmd);
 }
-void receive_message(int fd, Client &client, Server &server)
+
+int parse_pwd(std::string pwd)
+{
+    if(pwd.empty())
+        return 2;
+    return 0;
+}
+int parse_nickname(std::string nickname)
+{
+    if(nickname.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]\\`_^{|}-\n\r") != std::string::npos)
+        return 1;
+    if(nickname.empty())
+        return 2;
+    return 0;
+}
+int fetch_fd(std::set<std::string> &connected_clients,std::string nickname)
+{
+    for(std::set<std::string>::iterator it = connected_clients.begin(); it != connected_clients.end(); ++it)
+        if((*it) == nickname)
+            return 1;
+    return 0;
+}
+int receive_message(Client &client,Server &server,int fd)
 {
     char buff[1024] = {0};
-    ssize_t bytes_read = recv(fd, buff, sizeof(buff), 0);
-    if (bytes_read <= 0)
-        return ;
-    std::string buffer = buff;
-    std::string command = buffer.substr(0, buffer.find(" "));
-    std::string new_nickname = _return_cmd(buffer);
-    if (command == "PASS")
+    int read_bytes = recv(fd, buff, 1024, 0);
+    if(read_bytes <= 0)
+        return 0;
+    std::string buffer(buff);
+    if(buffer.find("PASS") != std::string::npos)
     {
-        client.set_password(_return_cmd(buffer));
-       if(parse_pwd(client) == 0 && !client.get_is_auth())
-            send_err(":Invalid password\r\n","464 *",fd,0);
-        else if(client.get_is_auth() && parse_pwd(client) == 0 )
-            return;
+        client.set_password(parse(buffer));
+        if(parse_pwd(client.get_password()) == 2)
+            send_err(":No password given\r\n","461 *",fd,0);
+        else
+            client.set_o(client.get_o() + 1);
+        
     }
-    else
+    else if(buffer.find("NICK") != std::string::npos)
+    { 
+        if(client.get_o() != 1)
+            return 1;
+        client.set_nickname(parse(buffer));
+        if(parse_nickname(client.get_nickname()) == 1)
+            send_err(":Invalid nickname\r\n","432 *",fd,0);
+        else if(parse_nickname(client.get_nickname()) == 2)
+            send_err(":No nickname given\r\n","431 *",fd,0);
+        else if(fetch_fd(server.used_nicknames,client.get_nickname()) == 1)
+            send_err(":Nickname is already in use\r\n","433 *",fd,0);
+        else
+            client.set_o(client.get_o() + 1);
+        
+    }
+    else if(buffer.find("USER") != std::string::npos)
     {
-        if (command == "NICK")
-        {
-           if(parse_nickname(new_nickname,fd) == 0)
-                return ;
-            check_inusenick(new_nickname,fd,server);
-            client.set_nickname(new_nickname);
-        }
-        else if (command == "USER")
-        {
-            if(user_parse(client,buffer)== EXIT_FAILURE)
-                return ;
-            authentify(fd,client,server);
-        }
+        if(client.get_o() != 2)
+            return 1;
+        client.set_username(parse(buffer));
+        std::cout << client.get_username() << std::endl;
+        if(client.get_username().empty())
+            send_err(":No username given\r\n","461 *",fd,0);
+        else
+            client.set_o(client.get_o() + 1);
     }
-    std::cout << " : "<<buff;
+    return 1;
 }

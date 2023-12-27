@@ -30,6 +30,7 @@ class Server
         struct sockaddr_in server_addr;
         std::set<std::string> used_nicknames;
         std::set<Client*> connected_clients;
+        Server() {};
          // set of connected clients
 };
 
@@ -48,13 +49,15 @@ std::string parse_pwd(int ac ,char **av);
 std::string parse_command(std::string command) ;
 bool check_in(int c);
 void send_err(std::string message, std::string code,int fd, int f);
-void authentify(int fd,Client &client,Server &server);
-int parse_pwd(Client &client);
-void check_inusenick(std::string nickname,int fd , Server &server);
+int parse_pwd(Client &client,Server &server);
 int parse_nickname(std::string nickname,int fd);
 void send_err(std::string message, std::string code,int fd, int f);
+void send_message(std::string message,std::string nickname,int fd, int code);
 std::string _return_cmd(std::string buffer);
 void ft_close_all(int server_socket, int kq);
 int ft_create_sever_socket(int port);
-void receive_message(int fd, Client &client, Server &server);
+int receive_message(Client &client,Server &server,int fd);
+int  check_inusenick(std::string nickname , Server &server);
+
+int authentify(int fd, Client& client, Server& server) ;
 #endif
